@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 export default function CreateSurprisePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState({
     password: '',
     partnerName: '',
@@ -16,8 +15,7 @@ export default function CreateSurprisePage() {
     finalPoem: `على طول 🎀\nمهما الدنيا ودتنا فين...\n\nهتفضل إنت أغلى حد عندي،\n\nأمانى وبيتي اللي برتاح فيه 🎀`,
     musicUrl: '',
   });
-  const [images, setImages] = useState<File[]>([]);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>(['']);
   const [error, setError] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -27,34 +25,18 @@ export default function CreateSurprisePage() {
     });
   };
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setImages(files);
+  const handleImageUrlChange = (index: number, value: string) => {
+    const newUrls = [...imageUrls];
+    newUrls[index] = value;
+    setImageUrls(newUrls);
+  };
 
-      // Upload images immediately
-      setUploadingImages(true);
-      const formData = new FormData();
-      files.forEach(file => formData.append('files', file));
+  const addImageUrl = () => {
+    setImageUrls([...imageUrls, '']);
+  };
 
-      try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setImageUrls(data.urls);
-        } else {
-          setError('فشل رفع الصور');
-        }
-      } catch (err) {
-        setError('حدث خطأ أثناء رفع الصور');
-      } finally {
-        setUploadingImages(false);
-      }
-    }
+  const removeImageUrl = (index: number) => {
+    setImageUrls(imageUrls.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,8 +44,10 @@ export default function CreateSurprisePage() {
     setError('');
     setLoading(true);
 
-    if (imageUrls.length === 0) {
-      setError('يجب رفع صورة واحدة على الأقل');
+    const validUrls = imageUrls.filter(url => url.trim() !== '');
+
+    if (validUrls.length === 0) {
+      setError('يجب إضافة رابط صورة واحد على الأقل');
       setLoading(false);
       return;
     }
@@ -74,7 +58,7 @@ export default function CreateSurprisePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          images: imageUrls,
+          images: validUrls,
         }),
       });
 
@@ -196,25 +180,55 @@ export default function CreateSurprisePage() {
 
           <div style={{ marginBottom: '30px', textAlign: 'right' }}>
             <label style={{ display: 'block', marginBottom: '10px', fontWeight: '500', color: '#ff1493' }}>
-              الصور * (صورة واحدة على الأقل)
+              روابط الصور * (رابط واحد على الأقل)
             </label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+              استخدم روابط من Imgur أو Google Drive أو أي خدمة تخزين سحابية
+            </p>
+            {imageUrls.map((url, index) => (
+              <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <input
+                  type="url"
+                  className="input"
+                  value={url}
+                  onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  required={index === 0}
+                  style={{ flex: 1 }}
+                />
+                {imageUrls.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeImageUrl(index)}
+                    style={{
+                      background: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px 20px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    حذف
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addImageUrl}
               style={{
-                width: '100%',
-                padding: '15px',
-                border: '2px dashed #ff69b4',
-                borderRadius: '15px',
+                background: 'linear-gradient(135deg, #ff69b4, #ff1493)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '10px 20px',
                 cursor: 'pointer',
+                marginTop: '10px',
               }}
-            />
-            {uploadingImages && <p style={{ marginTop: '10px', color: '#ff69b4' }}>جاري رفع الصور...</p>}
-            {imageUrls.length > 0 && (
-              <p style={{ marginTop: '10px', color: '#28a745' }}>تم رفع {imageUrls.length} صورة ✓</p>
-            )}
+            >
+              + إضافة رابط صورة
+            </button>
           </div>
 
           {error && <div className="error" style={{ marginBottom: '20px' }}>{error}</div>}
@@ -234,7 +248,7 @@ export default function CreateSurprisePage() {
             <button
               type="submit"
               className="button"
-              disabled={loading || uploadingImages}
+              disabled={loading}
               style={{ flex: 1 }}
             >
               {loading ? 'جاري الإنشاء...' : 'إنشاء المفاجأة 💕'}
